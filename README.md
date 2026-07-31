@@ -1,82 +1,97 @@
-RideRight
+# SynapTrix Submission: RideRight
 
-Submission for Synatrix
+## Team
+- Team code: T7856
+- Team name: Bit2Bytes
+- Members: Yash Kumar, Shreya Sharma, Subarno Dutta
 
-Domain:Gigshield
+## Domain & Problem
+- Domain: GigShield — Gig Economy & Informal Sector Tech
+- Problem statement: Build an AI-powered companion for gig workers that goes beyond simple
+  earnings tracking — one that acts as a financial coach, a safety net, and a rights advisor
+  all in one. It should help a worker understand not just how much they earned, but whether
+  it was fair, safe, and sustainable, and step in with real support the moment something
+  looks wrong.
 
-Problem Statement:Build an AI-powered companion for gig workers that goes beyond simple earnings tracking — one that acts as a financial coach,
-a safety net, and a rights advisor all in one. It should help a worker understand not just how much they earned, but whether 
-it was fair, safe, and sustainable, and step in with real support the moment something looks wrong.
+## Solution
+RideRight is an AI-powered companion that helps gig workers earn fairly, work safely, and plan
+sustainably. Instead of being just an earnings tracker, it combines fair-pay analysis, financial
+coaching, worker rights assistance, and safety support into one intelligent platform.
 
-Team Bit2Bytes
-Yash Kumar
-Shreya Sharma
-Subarno Dutta
+**User journey:** A worker logs a job manually or uploads a screenshot from a gig app. OCR
+extracts the trip details, and the AI Fairness Engine checks whether the payout is fair. The
+worker receives instant insights, can consult the AI chatbot for financial or legal guidance,
+and views all earnings from multiple platforms in a single dashboard with personalized weekly
+summaries. If the worker feels overworked, RideRight proactively provides wellness support.
 
-Our solution:
-RideRight is an AI-powered companion that helps gig workers earn fairly, work safely, and plan sustainably. Instead of being just an earnings tracker, it combines fair-pay analysis, financial coaching, worker rights assistance, and safety support into one intelligent platform.
+**Pain points solved:**
+- Unclear and potentially unfair payouts
+- Scattered earnings across multiple gig platforms
+- Lack of financial planning and actionable insights
+- Limited awareness of worker rights
+- Safety and burnout risks during long working hours
 
-User Journey-A worker logs a job manually or uploads a screenshot from a gig app. OCR extracts the trip details, and our AI Fairness Engine checks whether the payout is fair. The worker receives instant insights, can consult the AI chatbot for financial or legal guidance, and views all earnings from multiple platforms in a single dashboard with personalized weekly summaries. If the worker feels unsafe or is overworked, RideRight proactively provides safety and wellness support.
+The AI component matters because it turns raw numbers into something a worker can actually act
+on — a plain-language explanation, a language they understand, a moment of care — rather than
+just another dashboard to interpret alone.
 
-Pain Points Solved-
-Unclear and potentially unfair payouts
-Scattered earnings across multiple gig platforms
-Lack of financial planning and actionable insights
-Limited awareness of worker rights
-Safety and burnout risks during long working hours
-Product Vision
+## AI Usage
+- Model/API used: Groq API — `llama-3.1-8b-instant`
+- Prompting or fine-tuning approach: No fine-tuning — zero-shot prompting with structured job
+  data (platform, distance, time, payout, fairness ratio) injected directly into each prompt so
+  responses stay grounded in the worker's actual numbers rather than generic advice. Response
+  length is capped per prompt to keep outputs concise and demo-reliable. Multilingual responses
+  are generated natively in the target language via the prompt (not translated afterward),
+  keeping it to one LLM call per response.
+- Safety/validation checks: The core fairness determination (underpaid / slightly low / fair) is
+  rule-based and transparent, not model-generated — the LLM only explains an already-computed
+  result, so a worker is never told something is unfair purely on the model's say-so. All LLM
+  calls have error handling with a readable fallback message if the API is unreachable or times
+  out, so a Groq hiccup during the demo doesn't break the app.
 
-Tech Stack:
-● Frontend:
-React 19
-TypeScript
-Vite
-Tailwind CSS v4
-shadcn/ui (Radix UI)
-TanStack Start & TanStack Router
-TanStack React Query
-Framer Motion (Motion)
-Recharts
-React Hook Form + Zod
-Lucide React Icons
+## Demo
+- Live demo/video: <add link>
+- Repository: https://github.com/Subarno-Datta/Synatrix-bit2bytes
 
-● Backend: 
-fastapi
-uvicorn[standard]
-python-multipart
-aiosqlite
-groq
-python-dotenv
-Pillow
+## Setup
 
-● AI/ML: 
-Groq API — llama-3.1-8b-instant model
-Language-Python
-Key libraries-groq (official SDK), python-dotenv (for API key management)
-AI use cases-Chatbot Q&A (fairness explanations, rights, complaints), weekly natural-language insight summaries, fatigue nudges, multilingual response generation (native, not post-translation)
-● Database/Storage:
-● Other tools/APIs: 
+Backend:
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
 
-Features Implemented:
+Frontend:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-* 📊 Unified dashboard for earnings, work hours, and analytics
-* 📝 Manual job logging & OCR-based screenshot upload
-* 🤖 AI-powered Fairness Checker for underpayment detection
-* 💬 AI Copilot for financial guidance and worker rights
-* 📈 AI-generated weekly insights and earning trends
-* 🔄 Multi-platform earnings aggregation
-* 📜 Job history with AI fairness analysis
-* 👤 User profile with performance metrics
-* ✨ Responsive, modern UI with interactive charts and animations
+Models/AI layer:
+```bash
+cd models
+pip install -r requirements.txt
+# add GROQ_API_KEY to a .env file in this folder
+python groq_llm.py
+```
 
-Core Requirements: 
--Let the worker log each job (fare, distance, time) manually, or scan a screenshot of their delivery/ride app using OCR to auto-extract the earnings data.
--A simple fairness-check model that flags a job as "possible underpayment" by comparing the actual payout against an expected fair-rate benchmark for that distance/time (a small reference dataset is enough).
--An AI chatbot (LLM API) that explains, in simple language, things like "is this fare fair?", "what are my rights?", or "how do I raise a complaint?".
--A dashboard summarizing weekly earnings, flagged underpayments, and total hours worked.
--A multi-platform earnings aggregator — let the worker log jobs from more than one gig app (e.g. a food delivery app and a ride-hailing app) and see all earnings unified in a single dashboard.
--An AI-generated weekly insight summary that goes beyond raw numbers, e.g. "You earned 12% less this week, and most of the underpayment happened during night shifts".
-
-Bonus Features Attempted: 
-AI-generated complaint draft – Generates a complaint message for underpaid jobs using the LLM.
-Fatigue/Burnout detector – Detects long working hours and generates an AI wellness/break reminder.
+## Judging Notes
+- What works today:
+  - Unified dashboard for earnings, work hours, and analytics
+  - Manual job logging & OCR-based screenshot upload
+  - AI-powered Fairness Checker for underpayment detection
+  - AI Copilot for financial guidance and worker rights
+  - AI-generated weekly insights and earning trends
+  - Multi-platform earnings aggregation
+  - Job history with AI fairness analysis
+  - User profile with performance metrics
+  - AI-generated complaint drafts for underpaid jobs
+  - Fatigue/burnout detector with AI-generated wellness nudges
+  - Responsive, modern UI with interactive charts and animations
+- Known limitations: <fill in — e.g. SQLite storage only, no persistence across deployments;
+  OCR accuracy depends on screenshot quality; free-tier Groq rate limits under heavy use>
+- What you would build next: Community fairness benchmark using crowdsourced fare data across
+  workers, an "I feel unsafe" safety trigger with location sharing, route safety scoring
+</parameter>
