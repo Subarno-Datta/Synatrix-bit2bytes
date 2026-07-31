@@ -1,29 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Clock3, MapPin, Route as RouteIcon, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { PlatformMark, SectionHeading } from "@/components/gig/primitives";
-import { jobs, platformMeta, statusMeta, type Fairness } from "@/lib/gig-data";
+import { statusMeta, type Fairness } from "@/lib/gig-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/history")({
   head: () => ({
     meta: [
       { title: "Job History — RideRight" },
-      {
-        name: "description",
-        content: "Browse every logged gig with fare, distance, duration and AI fairness verdict.",
-      },
+      { name: "description", content: "Browse every logged gig with fare, distance, duration and AI fairness verdict." },
       { property: "og:title", content: "Job History — RideRight" },
-      {
-        property: "og:description",
-        content: "Every gig you logged, with fairness verdicts you can dispute.",
-      },
+      { property: "og:description", content: "Every gig you logged, with fairness verdicts you can dispute." },
     ],
   }),
   component: HistoryPage,
 });
+
+const PLATFORM_COLORS: Record<string, string> = {
+  Swiggy: "#F59E0B", Zomato: "#EF4444", Uber: "#22C55E",
+  Rapido: "#8B5CF6", Blinkit: "#06B6D4",
+};
+const getColor = (p: string) => PLATFORM_COLORS[p] ?? "#3B82F6";
+
+type Job = {
+  id: string; platform: string; fare: number; distance: number;
+  minutes: number; date: string; status: string; expected: number; fairness_pct: number;
+};
 
 const filters: { key: "all" | Fairness; label: string }[] = [
   { key: "all", label: "All jobs" },
@@ -33,7 +38,16 @@ const filters: { key: "all" | Fairness; label: string }[] = [
 ];
 
 function HistoryPage() {
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<"all" | Fairness>("all");
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/jobs?limit=100")
+      .then((r) => r.json())
+      .then((d) => setJobs(d.jobs ?? []))
+      .catch(() => {});
+  }, []);
+
   const visible = jobs.filter((j) => filter === "all" || j.status === filter);
 
   return (
@@ -64,16 +78,20 @@ function HistoryPage() {
 
       {visible.length === 0 ? (
         <div className="rounded-3xl glass py-24 text-center">
-          <p className="text-lg font-semibold">Nothing here yet</p>
+          <p className="text-lg font-semibold">
+            {jobs.length === 0 ? "No jobs logged yet" : "Nothing here yet"}
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            No gigs match this filter — a good sign, actually.
+            {jobs.length === 0
+              ? "Head to Log Job to add your first gig."
+              : "No gigs match this filter — a good sign, actually."}
           </p>
         </div>
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {visible.map((job, i) => {
-            const meta = platformMeta[job.platform];
-            const status = statusMeta[job.status];
+            const color = getColor(job.platform);
+            const status = statusMeta[job.status as keyof typeof statusMeta] ?? { label: job.status, color: "#3B82F6" };
             const diff = job.fare - job.expected;
             return (
               <motion.article
@@ -84,7 +102,6 @@ function HistoryPage() {
                 transition={{ duration: 0.55, delay: (i % 3) * 0.08, ease: [0.22, 1, 0.36, 1] }}
                 whileHover={{ y: -8 }}
                 className="group relative overflow-hidden rounded-3xl glass p-6"
-                style={{ ["--tint" as string]: status.color }}
               >
                 <div
                   className="pointer-events-none absolute inset-0 rounded-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100"
@@ -92,7 +109,7 @@ function HistoryPage() {
                 />
                 <div className="relative flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <PlatformMark name={job.platform} color={meta.color} />
+                    <PlatformMark name={job.platform} color={color} />
                     <div>
                       <p className="text-sm font-semibold">{job.platform}</p>
                       <p className="text-[11px] text-muted-foreground">{job.date}</p>
@@ -100,34 +117,21 @@ function HistoryPage() {
                   </div>
                   <span
                     className="rounded-full px-3 py-1 text-[11px] font-semibold"
-                    style={{
-                      color: status.color,
-                      background: `${status.color}1f`,
-                      border: `1px solid ${status.color}44`,
-                    }}
+                    style={{ color: status.color, background: `${status.color}1f`, border: `1px solid ${status.color}44` }}
                   >
                     {status.label}
                   </span>
                 </div>
 
                 <p className="relative mt-6 text-3xl font-bold tracking-tight">₹{job.fare}</p>
-                <p
-                  className="relative mt-1 text-xs"
-                  style={{ color: diff >= 0 ? "#22C55E" : "#EF4444" }}
-                >
-                  {diff >= 0 ? "+" : "−"}₹{Math.abs(diff)} vs expected ₹{job.expected}
+                <p className="relative mt-1 text-xs" style={{ color: diff >= 0 ? "#22C55E" : "#EF4444" }}>
+                  {diff >= 0 ? "+" : "−"}₹{Math.abs(diff).toFixed(0)} vs expected ₹{job.expected}
                 </p>
 
                 <div className="relative mt-6 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <RouteIcon className="h-3.5 w-3.5" /> {job.distance} km
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Clock3 className="h-3.5 w-3.5" /> {job.minutes} min
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5" /> {job.id}
-                  </span>
+                  <span className="flex items-center gap-1.5"><RouteIcon className="h-3.5 w-3.5" /> {job.distance} km</span>
+                  <span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> {job.minutes} min</span>
+                  <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {job.id}</span>
                 </div>
 
                 <div className="relative mt-6 h-10 overflow-hidden">
@@ -146,7 +150,7 @@ function HistoryPage() {
                         const data = await res.json();
                         toast(`Dispute draft · ${job.id}`, { description: data.draft });
                       } catch {
-                        toast(`AI analysis · ${job.id}`, { description: `Shortfall of ₹${Math.abs(diff)} detected — eligible to dispute.` });
+                        toast(`AI analysis · ${job.id}`, { description: `Shortfall of ₹${Math.abs(diff).toFixed(0)} detected — eligible to dispute.` });
                       }
                     }}
                     initial={false}

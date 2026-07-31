@@ -6,7 +6,6 @@ Run: uvicorn main:app --reload --port 8000
 import os
 import sys
 import uuid
-import base64
 from datetime import datetime
 from pathlib import Path
 
@@ -28,7 +27,7 @@ app = FastAPI(title="RideRight API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -107,70 +106,25 @@ async def list_jobs(limit: int = 50):
 @app.post("/api/jobs/scan")
 async def scan_screenshot(file: UploadFile = File(...)):
     """
-    Accepts a payout screenshot, uses Groq vision-capable model to extract
-    fare, distance, time and platform, then runs fairness assessment.
+    Returns a preview URL for the uploaded screenshot so the user
+    can confirm/correct values before saving via POST /api/jobs.
     """
+    import base64, io
+    from PIL import Image
+
     image_bytes = await file.read()
-    b64 = base64.b64encode(image_bytes).decode()
-    mime = file.content_type or "image/jpeg"
+    # Resize to thumbnail for fast preview in frontend
+    img = Image.open(io.BytesIO(image_bytes))
+    img.thumbnail((600, 1200))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=80)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    mime = "image/jpeg"
 
-    groq_client = groq_llm.client
-    try:
-        resp = groq_client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Extract from this gig payout screenshot: platform name, "
-                                "fare amount (₹), distance (km), and time (minutes). "
-                                "Reply ONLY as JSON: "
-                                "{\"platform\": str, \"fare\": float, \"distance\": float, \"minutes\": float}. "
-                                "If a field is missing use null."
-                            ),
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime};base64,{b64}"},
-                        },
-                    ],
-                }
-            ],
-            max_tokens=120,
-            temperature=0.1,
-        )
-        import json, re
-        raw = resp.choices[0].message.content.strip()
-        # extract JSON even if model wraps it in markdown
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        extracted = json.loads(match.group()) if match else {}
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"OCR failed: {e}")
-
-    platform = extracted.get("platform") or "Unknown"
-    fare = float(extracted.get("fare") or 0)
-    distance = float(extracted.get("distance") or 1)
-    minutes = float(extracted.get("minutes") or 1)
-
-    result = fairness.assess(platform, distance, minutes, fare)
-    job_id = f"RR-{str(uuid.uuid4())[:4].upper()}"
-    job = {
-        "id": job_id,
-        "platform": platform.capitalize(),
-        "fare": fare,
-        "distance": distance,
-        "minutes": minutes,
-        "date": datetime.now().strftime("%d %b · %I:%M %p"),
-        "status": result["label"],
-        "expected": result["expected_fare"],
-        "fairness_pct": result["fairness_percent"],
+    return {
+        "preview": f"data:{mime};base64,{b64}",
+        "filename": file.filename,
     }
-    await database.insert_job(job)
-
-    return {"job": job, "fairness": result, "extracted": extracted}
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -287,3 +241,73 @@ async def complaint(body: ComplaintIn):
 async def fatigue(body: FatigueIn):
     nudge = groq_llm.fatigue_nudge(body.hours_worked, body.threshold)
     return {"nudge": nudge}
+
+
+# ── Profile ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/profile")
+async def profile():
+    jobs = await database.get_jobs(limit=1000)
+    if not jobs:
+        return {
+            "total_jobs": 0,
+            "avg_fairness": 0.0,
+            "total_earnings": 0.0,
+            "platforms": [],
+            "today_earnings": 0.0,
+            "most_flagged_job": None,
+        }
+
+    total_jobs = len(jobs)
+    avg_fairness = round(sum(j["fairness_pct"] for j in jobs) / total_jobs, 1)
+    total_earnings = round(sum(j["fare"] for j in jobs), 2)
+
+    # platforms ranked by avg fairness
+    from collections import defaultdict
+    plat_fair: dict[str, list] = defaultdict(list)
+    plat_earn: dict[str, float] = defaultdict(float)
+    for j in jobs:
+        plat_fair[j["platform"]].append(j["fairness_pct"])
+        plat_earn[j["platform"]] += j["fare"]
+
+    platforms = sorted(
+        [
+            {
+                "platform": p,
+                "avg_fairness": round(sum(v) / len(v), 1),
+                "total_earnings": round(plat_earn[p], 2),
+                "job_count": len(v),
+            }
+            for p, v in plat_fair.items()
+        ],
+        key=lambda x: x["avg_fairness"],
+        reverse=True,
+    )
+
+    # today's earnings
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_earnings = round(
+        sum(j["fare"] for j in jobs if j.get("created_at", "").startswith(today)), 2
+    )
+
+    # most underpaid job
+    underpaid = [j for j in jobs if j["status"] == "underpaid"]
+    most_flagged = None
+    if underpaid:
+        worst = min(underpaid, key=lambda j: j["fairness_pct"])
+        most_flagged = {
+            "id": worst["id"],
+            "platform": worst["platform"],
+            "fare": worst["fare"],
+            "expected": worst["expected"],
+            "fairness_pct": worst["fairness_pct"],
+        }
+
+    return {
+        "total_jobs": total_jobs,
+        "avg_fairness": avg_fairness,
+        "total_earnings": total_earnings,
+        "platforms": platforms,
+        "today_earnings": today_earnings,
+        "most_flagged_job": most_flagged,
+    }

@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { Check, CloudUpload, Keyboard, ScanLine, Sparkles } from "lucide-react";
+import { CloudUpload, Keyboard, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { CountUp, SectionHeading, TiltCard } from "@/components/gig/primitives";
+import { SectionHeading } from "@/components/gig/primitives";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -220,40 +220,53 @@ function ManualForm() {
   );
 }
 
+const uploadFields = [
+  { id: "platform", label: "Platform", placeholder: "Swiggy" },
+  { id: "fare", label: "Fare (₹)", placeholder: "148" },
+  { id: "distance", label: "Distance (km)", placeholder: "6.2" },
+  { id: "time", label: "Time (min)", placeholder: "24" },
+];
+
 function UploadFlow() {
-  const [phase, setPhase] = useState<"idle" | "scanning" | "done">("idle");
   const [dragging, setDragging] = useState(false);
-  const [scanned, setScanned] = useState<{ label: string; value: number; prefix?: string; suffix?: string; decimals?: number }[]>([]);
-  const [verdict, setVerdict] = useState<{ status: string; pct: number } | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const upload = async (file: File) => {
-    if (phase === "scanning") return;
-    setPhase("scanning");
-    setScanned([]);
-    setVerdict(null);
+  const handleFile = async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("http://localhost:8000/api/jobs/scan", { method: "POST", body: form });
+    const data = await res.json();
+    setPreview(data.preview);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setSaving(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("http://localhost:8000/api/jobs/scan", {
+      const res = await fetch("http://localhost:8000/api/jobs", {
         method: "POST",
-        body: form,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: fd.get("platform"),
+          fare: parseFloat(fd.get("fare") as string),
+          distance: parseFloat(fd.get("distance") as string),
+          minutes: parseFloat(fd.get("time") as string),
+          date: "",
+        }),
       });
       const data = await res.json();
-      const job = data.job;
-      setScanned([
-        { label: "Fare", value: job.fare, prefix: "₹" },
-        { label: "Distance", value: job.distance, suffix: " km", decimals: 1 },
-        { label: "Time", value: job.minutes, suffix: " min" },
-      ]);
-      setVerdict({ status: job.status, pct: job.fairness_pct });
-      setPhase("done");
-      toast.success("Job saved successfully", {
-        description: `Fairness verdict: ${job.status} · ${job.fairness_pct}% of expected fare`,
+      toast.success("Job saved", {
+        description: `Fairness verdict: ${data.job.status} · ${data.job.fairness_pct}% of expected fare`,
       });
+      setPreview(null);
+      (e.target as HTMLFormElement).reset();
     } catch {
-      setPhase("idle");
-      toast.error("Scan failed", { description: "Check that the backend is running." });
+      toast.error("Failed to save job", { description: "Check that the backend is running." });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -265,127 +278,80 @@ function UploadFlow() {
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       className="rounded-3xl glass p-7 md:p-10"
     >
-      <SectionHeading eyebrow="Screenshot OCR" title="Drop your payout screenshot" />
+      <SectionHeading eyebrow="Screenshot upload" title="Upload your payout screenshot" />
 
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) upload(file);
-        }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
 
-      <motion.div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          const file = e.dataTransfer.files?.[0];
-          if (file) upload(file);
-        }}
-        onClick={() => fileRef.current?.click()}
-        animate={{ scale: dragging ? 1.015 : 1 }}
-        className={cn(
-          "mt-8 cursor-pointer rounded-3xl border-2 border-dashed border-white/15 bg-white/[0.03] px-6 py-16 text-center transition-all duration-300 hover:border-white/25 hover:bg-white/[0.045]",
-          dragging && "border-primary/70 bg-primary/10",
-        )}
-      >
+      {!preview ? (
         <motion.div
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-          className="mx-auto grid h-20 w-20 place-items-center rounded-3xl border border-border bg-white/[0.05] text-primary"
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
+          onClick={() => fileRef.current?.click()}
+          animate={{ scale: dragging ? 1.015 : 1 }}
+          className={cn(
+            "mt-8 cursor-pointer rounded-3xl border-2 border-dashed border-white/15 bg-white/[0.03] px-6 py-16 text-center transition-all duration-300 hover:border-white/25 hover:bg-white/[0.045]",
+            dragging && "border-primary/70 bg-primary/10",
+          )}
         >
-          <CloudUpload className="h-9 w-9" />
-        </motion.div>
-        <p className="mt-6 text-base font-semibold">Drag & drop or click to upload</p>
-        <p className="mt-1 text-xs text-muted-foreground">PNG, JPG or HEIC up to 10 MB</p>
-      </motion.div>
-
-      <AnimatePresence>
-        {phase !== "idle" ? (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+            className="mx-auto grid h-20 w-20 place-items-center rounded-3xl border border-border bg-white/[0.05] text-primary"
           >
-            <motion.div
-              layout
-              className="relative overflow-hidden rounded-3xl border border-border bg-[#101828] p-6"
-            >
-              <div className="space-y-3">
-                <div className="h-3 w-24 rounded-full bg-white/15" />
-                <div className="h-9 w-40 rounded-xl bg-white/10" />
-                <div className="h-3 w-32 rounded-full bg-white/10" />
-                <div className="h-3 w-28 rounded-full bg-white/10" />
-                <div className="mt-6 h-24 rounded-2xl bg-white/[0.06]" />
-              </div>
-              {phase === "scanning" ? (
-                <motion.div
-                  initial={{ top: "-10%" }}
-                  animate={{ top: "110%" }}
-                  transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
-                  className="pointer-events-none absolute inset-x-0 h-16"
-                  style={{
-                    background: "linear-gradient(180deg, transparent, rgba(59,130,246,0.55), transparent)",
-                    boxShadow: "0 0 40px 10px rgba(59,130,246,0.35)",
-                  }}
-                />
-              ) : null}
-              <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
-                <ScanLine className="h-4 w-4 text-primary" />
-                {phase === "scanning" ? "Scanning image…" : "Scan complete"}
-              </div>
-            </motion.div>
-
-            <div className="space-y-3">
-              {scanned.map((d, i) => (
-                <motion.div
-                  key={d.label}
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.15, duration: 0.5 }}
-                  className="flex items-center justify-between rounded-2xl border border-border bg-white/[0.04] px-5 py-4"
-                >
-                  <span className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span className="grid h-7 w-7 place-items-center rounded-full bg-[#22C55E]/15 text-[#22C55E]">
-                      <Check className="h-4 w-4" />
-                    </span>
-                    {d.label}
-                  </span>
-                  <span className="text-lg font-bold">
-                    <CountUp value={d.value} prefix={d.prefix} suffix={d.suffix} decimals={d.decimals ?? 0} duration={1} />
-                  </span>
-                </motion.div>
-              ))}
-
-              <AnimatePresence>
-                {phase === "done" && verdict ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                    className="flex items-center gap-3 rounded-2xl border border-[#22C55E]/40 bg-[#22C55E]/10 px-5 py-4"
-                  >
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-[#22C55E] text-[#060816]">
-                      <Check className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold">Job saved successfully</p>
-                      <p className="text-xs text-muted-foreground">
-                        Fairness verdict: {verdict.status} · {verdict.pct}%
-                      </p>
-                    </div>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </div>
+            <CloudUpload className="h-9 w-9" />
           </motion.div>
-        ) : null}
-      </AnimatePresence>
+          <p className="mt-6 text-base font-semibold">Drag & drop or click to upload</p>
+          <p className="mt-1 text-xs text-muted-foreground">PNG, JPG or HEIC up to 10 MB</p>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-8 grid gap-8 lg:grid-cols-2"
+        >
+          <div className="relative overflow-hidden rounded-3xl border border-border bg-black/20">
+            <img src={preview} alt="Payout screenshot" className="w-full object-contain max-h-[420px]" />
+            <button
+              onClick={() => { setPreview(null); if (fileRef.current) fileRef.current.value = ""; }}
+              className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs text-white hover:bg-black/80"
+            >
+              Change
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <p className="text-sm text-muted-foreground">Fill in the values from your screenshot:</p>
+            {uploadFields.map((f) => (
+              <div key={f.id} className="space-y-1.5">
+                <Label htmlFor={`up-${f.id}`} className="text-xs text-muted-foreground">{f.label}</Label>
+                <Input
+                  id={`up-${f.id}`}
+                  name={f.id}
+                  placeholder={f.placeholder}
+                  className="h-11 rounded-2xl border-border bg-white/[0.04] px-4 text-sm"
+                />
+              </div>
+            ))}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              type="submit"
+              disabled={saving}
+              className="mt-2 w-full rounded-2xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              style={{ background: "var(--gradient-brand)", boxShadow: "0 20px 50px -24px #3B82F6" }}
+            >
+              {saving ? "Saving…" : "Save job"}
+            </motion.button>
+          </form>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
