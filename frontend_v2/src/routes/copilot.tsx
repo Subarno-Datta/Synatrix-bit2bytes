@@ -205,19 +205,6 @@ const suggestions = [
   "Which platform is best?",
 ];
 
-const replies: Record<string, string> = {
-  default:
-    "Based on your last 30 days: your strongest ₹/hour comes from Uber evening rides (₹214/hr), while Swiggy short-distance deliveries drag your average down to ₹118/hr.",
-  "Why was this ride flagged?":
-    "RR-1041 paid ₹96 for 6.2 km and 24 minutes. Comparable Swiggy jobs in your zone paid ₹148 — a 35% shortfall, mainly a missing distance incentive. You can dispute it.",
-  "Compare all my platforms.":
-    "Uber ₹2,140 (+18.4%), Swiggy ₹2,480 (+8.2%), Rapido ₹1,610 (−4.1%), Blinkit ₹1,200 (+2.6%). Uber leads on ₹/km; Swiggy leads on volume.",
-  "Show earning trends.":
-    "Your earnings peak Friday 6–11 PM (₹1,580) and dip Tuesday afternoons. Shifting 4 Tuesday hours to Friday could add roughly ₹620 per week.",
-  "Which platform is best?":
-    "For your travel pattern, Uber is best: highest fairness rate (96%) and the fewest flagged payouts this month.",
-};
-
 type Msg = { role: "user" | "ai"; text: string };
 
 function ChatPanel() {
@@ -232,15 +219,24 @@ function ChatPanel() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing]);
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     if (!text.trim()) return;
     setMessages((m) => [...m, { role: "user", text }]);
     setInput("");
     setTyping(true);
-    window.setTimeout(() => {
+    try {
+      const res = await fetch("http://localhost:8000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await res.json();
+      setMessages((m) => [...m, { role: "ai", text: data.reply }]);
+    } catch {
+      setMessages((m) => [...m, { role: "ai", text: "AI temporarily unavailable. Please try again." }]);
+    } finally {
       setTyping(false);
-      setMessages((m) => [...m, { role: "ai", text: replies[text] ?? replies.default }]);
-    }, 1100);
+    }
   };
 
   return (

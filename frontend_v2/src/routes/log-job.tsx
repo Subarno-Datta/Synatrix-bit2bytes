@@ -140,16 +140,43 @@ const fields = [
 ];
 
 function ManualForm() {
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setSaving(true);
+    try {
+      const res = await fetch("http://localhost:8000/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: fd.get("platform"),
+          fare: parseFloat(fd.get("fare") as string),
+          distance: parseFloat(fd.get("distance") as string),
+          minutes: parseFloat(fd.get("time") as string),
+          date: fd.get("date") as string,
+        }),
+      });
+      const data = await res.json();
+      toast.success("Job saved", {
+        description: `Fairness verdict: ${data.job.status} · ${data.job.fairness_pct}% of expected fare`,
+      });
+      (e.target as HTMLFormElement).reset();
+    } catch {
+      toast.error("Failed to save job", { description: "Check that the backend is running." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <motion.form
       initial={{ opacity: 0, y: 46 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 30 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      onSubmit={(e) => {
-        e.preventDefault();
-        toast.success("Job saved", { description: "Fairness check queued — verdict in a moment." });
-      }}
+      onSubmit={handleSubmit}
       className="rounded-3xl glass p-7 md:p-10"
     >
       <SectionHeading eyebrow="Manual entry" title="Tell us about the gig" />
@@ -167,6 +194,7 @@ function ManualForm() {
             </Label>
             <Input
               id={f.id}
+              name={f.id}
               placeholder={f.placeholder}
               className="h-12 rounded-2xl border-border bg-white/[0.04] px-4 text-sm transition-all duration-300 hover:border-primary/30 focus-visible:ring-primary/40"
             />
@@ -177,7 +205,8 @@ function ManualForm() {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.97 }}
         type="submit"
-        className="mt-8 w-full rounded-2xl px-6 py-3.5 text-sm font-semibold text-white md:w-auto"
+        disabled={saving}
+        className="mt-8 w-full rounded-2xl px-6 py-3.5 text-sm font-semibold text-white disabled:opacity-60 md:w-auto"
         style={{
           background: "var(--gradient-brand)",
           backgroundSize: "200% 200%",
@@ -185,36 +214,47 @@ function ManualForm() {
           boxShadow: "0 20px 50px -24px #3B82F6",
         }}
       >
-        Save job
+        {saving ? "Saving…" : "Save job"}
       </motion.button>
     </motion.form>
   );
 }
 
-const detections = [
-  { label: "Fare", value: 148, prefix: "₹" },
-  { label: "Distance", value: 6.2, suffix: " km", decimals: 1 },
-  { label: "Time", value: 24, suffix: " min" },
-];
-
 function UploadFlow() {
   const [phase, setPhase] = useState<"idle" | "scanning" | "done">("idle");
   const [dragging, setDragging] = useState(false);
-  const timers = useRef<number[]>([]);
+  const [scanned, setScanned] = useState<{ label: string; value: number; prefix?: string; suffix?: string; decimals?: number }[]>([]);
+  const [verdict, setVerdict] = useState<{ status: string; pct: number } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
-
-  const start = () => {
+  const upload = async (file: File) => {
     if (phase === "scanning") return;
     setPhase("scanning");
-    timers.current.push(
-      window.setTimeout(() => {
-        setPhase("done");
-        toast.success("Job saved successfully", {
-          description: "Scanned in 2.4s · fairness score 88/100",
-        });
-      }, 3200),
-    );
+    setScanned([]);
+    setVerdict(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("http://localhost:8000/api/jobs/scan", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      const job = data.job;
+      setScanned([
+        { label: "Fare", value: job.fare, prefix: "₹" },
+        { label: "Distance", value: job.distance, suffix: " km", decimals: 1 },
+        { label: "Time", value: job.minutes, suffix: " min" },
+      ]);
+      setVerdict({ status: job.status, pct: job.fairness_pct });
+      setPhase("done");
+      toast.success("Job saved successfully", {
+        description: `Fairness verdict: ${job.status} · ${job.fairness_pct}% of expected fare`,
+      });
+    } catch {
+      setPhase("idle");
+      toast.error("Scan failed", { description: "Check that the backend is running." });
+    }
   };
 
   return (
@@ -227,18 +267,27 @@ function UploadFlow() {
     >
       <SectionHeading eyebrow="Screenshot OCR" title="Drop your payout screenshot" />
 
-      <motion.div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) upload(file);
         }}
+      />
+
+      <motion.div
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          start();
+          const file = e.dataTransfer.files?.[0];
+          if (file) upload(file);
         }}
-        onClick={start}
+        onClick={() => fileRef.current?.click()}
         animate={{ scale: dragging ? 1.015 : 1 }}
         className={cn(
           "mt-8 cursor-pointer rounded-3xl border-2 border-dashed border-white/15 bg-white/[0.03] px-6 py-16 text-center transition-all duration-300 hover:border-white/25 hover:bg-white/[0.045]",
@@ -252,7 +301,7 @@ function UploadFlow() {
         >
           <CloudUpload className="h-9 w-9" />
         </motion.div>
-        <p className="mt-6 text-base font-semibold">Drag & drop or click to simulate a scan</p>
+        <p className="mt-6 text-base font-semibold">Drag & drop or click to upload</p>
         <p className="mt-1 text-xs text-muted-foreground">PNG, JPG or HEIC up to 10 MB</p>
       </motion.div>
 
@@ -281,8 +330,7 @@ function UploadFlow() {
                   transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
                   className="pointer-events-none absolute inset-x-0 h-16"
                   style={{
-                    background:
-                      "linear-gradient(180deg, transparent, rgba(59,130,246,0.55), transparent)",
+                    background: "linear-gradient(180deg, transparent, rgba(59,130,246,0.55), transparent)",
                     boxShadow: "0 0 40px 10px rgba(59,130,246,0.35)",
                   }}
                 />
@@ -294,12 +342,12 @@ function UploadFlow() {
             </motion.div>
 
             <div className="space-y-3">
-              {detections.map((d, i) => (
+              {scanned.map((d, i) => (
                 <motion.div
                   key={d.label}
                   initial={{ opacity: 0, x: 24 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.7 + i * 0.7, duration: 0.5 }}
+                  transition={{ delay: i * 0.15, duration: 0.5 }}
                   className="flex items-center justify-between rounded-2xl border border-border bg-white/[0.04] px-5 py-4"
                 >
                   <span className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -309,19 +357,13 @@ function UploadFlow() {
                     {d.label}
                   </span>
                   <span className="text-lg font-bold">
-                    <CountUp
-                      value={d.value}
-                      prefix={d.prefix}
-                      suffix={d.suffix}
-                      decimals={d.decimals ?? 0}
-                      duration={1}
-                    />
+                    <CountUp value={d.value} prefix={d.prefix} suffix={d.suffix} decimals={d.decimals ?? 0} duration={1} />
                   </span>
                 </motion.div>
               ))}
 
               <AnimatePresence>
-                {phase === "done" ? (
+                {phase === "done" && verdict ? (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -334,7 +376,7 @@ function UploadFlow() {
                     <div>
                       <p className="text-sm font-semibold">Job saved successfully</p>
                       <p className="text-xs text-muted-foreground">
-                        Fairness verdict: fair · 88/100
+                        Fairness verdict: {verdict.status} · {verdict.pct}%
                       </p>
                     </div>
                   </motion.div>

@@ -132,14 +132,23 @@ function HistoryPage() {
 
                 <div className="relative mt-6 h-10 overflow-hidden">
                   <motion.button
-                    onClick={() =>
-                      toast(`AI analysis · ${job.id}`, {
-                        description:
-                          diff >= 0
-                            ? "Payout matched the distance/time model within tolerance."
-                            : `Shortfall of ₹${Math.abs(diff)} detected — eligible to dispute.`,
-                      })
-                    }
+                    onClick={async () => {
+                      if (diff >= 0) {
+                        toast(`AI analysis · ${job.id}`, { description: "Payout matched the distance/time model within tolerance." });
+                        return;
+                      }
+                      try {
+                        const res = await fetch("http://localhost:8000/api/complaint", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ job_id: job.id }),
+                        });
+                        const data = await res.json();
+                        toast(`Dispute draft · ${job.id}`, { description: data.draft });
+                      } catch {
+                        toast(`AI analysis · ${job.id}`, { description: `Shortfall of ₹${Math.abs(diff)} detected — eligible to dispute.` });
+                      }
+                    }}
                     initial={false}
                     className="flex w-full translate-y-12 items-center justify-center gap-2 rounded-2xl border border-border bg-white/[0.06] py-2.5 text-xs font-semibold transition-transform duration-300 group-hover:translate-y-0"
                   >
