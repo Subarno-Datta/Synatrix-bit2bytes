@@ -3,7 +3,7 @@
 ## Team
 - Team code: T7856
 - Team name: Bit2Bytes
-- Members: Yash Kumar, Shreya Sharma, Subarno Dutta
+- Members: Yash Kumar, Shreya Sharma, Subarno Datta
 
 ## Domain & Problem
 - Domain: GigShield — Gig Economy & Informal Sector Tech
