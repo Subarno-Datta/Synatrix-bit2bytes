@@ -26,9 +26,6 @@ Limited awareness of worker rights
 Safety and burnout risks during long working hours
 Product Vision
 
-AI component:
-
- 
 Tech Stack:
 ● Frontend:
 React 19
@@ -61,9 +58,6 @@ AI use cases-Chatbot Q&A (fairness explanations, rights, complaints), weekly nat
 ● Other tools/APIs: 
 
 Features Implemented:
-For a README, keep it short and impactful.
-
-## Features Implemented
 
 * 📊 Unified dashboard for earnings, work hours, and analytics
 * 📝 Manual job logging & OCR-based screenshot upload
@@ -76,4 +70,14 @@ For a README, keep it short and impactful.
 * ✨ Responsive, modern UI with interactive charts and animations
 
 Core Requirements: 
+-Let the worker log each job (fare, distance, time) manually, or scan a screenshot of their delivery/ride app using OCR to auto-extract the earnings data.
+-A simple fairness-check model that flags a job as "possible underpayment" by comparing the actual payout against an expected fair-rate benchmark for that distance/time (a small reference dataset is enough).
+-An AI chatbot (LLM API) that explains, in simple language, things like "is this fare fair?", "what are my rights?", or "how do I raise a complaint?".
+-A dashboard summarizing weekly earnings, flagged underpayments, and total hours worked.
+-A multi-platform earnings aggregator — let the worker log jobs from more than one gig app (e.g. a food delivery app and a ride-hailing app) and see all earnings unified in a single dashboard.
+-An AI-generated weekly insight summary that goes beyond raw numbers, e.g. "You earned 12% less this week, and most of the underpayment happened during night shifts".
+
 Bonus Features Attempted: 
+AI-generated complaint draft – Generates a complaint message for underpaid jobs using the LLM.
+Fatigue/Burnout detector – Detects long working hours and generates an AI wellness/break reminder.
+Multilingual AI responses – The LLM is set up to generate responses in multiple languages (native generation rather than translating after the fact).
