@@ -80,4 +80,3 @@ Core Requirements:
 Bonus Features Attempted: 
 AI-generated complaint draft – Generates a complaint message for underpaid jobs using the LLM.
 Fatigue/Burnout detector – Detects long working hours and generates an AI wellness/break reminder.
-Multilingual AI responses – The LLM is set up to generate responses in multiple languages (native generation rather than translating after the fact).
