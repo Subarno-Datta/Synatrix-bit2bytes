@@ -27,16 +27,21 @@ Safety and burnout risks during long working hours
 Product Vision
 
 AI component:
+
  
 Tech Stack:
 ● Frontend:
-React.js – Responsive single-page application
-TypeScript – Type-safe development
-Tailwind CSS – Modern, responsive UI styling
-shadcn/ui – Reusable UI components
-Framer Motion – Smooth animations and transitions
-Recharts – Earnings and analytics visualizations
-React Router – Client-side navigation
+React 19
+TypeScript
+Vite
+Tailwind CSS v4
+shadcn/ui (Radix UI)
+TanStack Start & TanStack Router
+TanStack React Query
+Framer Motion (Motion)
+Recharts
+React Hook Form + Zod
+Lucide React Icons
 
 ● Backend: 
 fastapi
@@ -55,6 +60,20 @@ AI use cases-Chatbot Q&A (fairness explanations, rights, complaints), weekly nat
 ● Database/Storage:
 ● Other tools/APIs: 
 
-Features Implemented 
+Features Implemented:
+For a README, keep it short and impactful.
+
+## Features Implemented
+
+* 📊 Unified dashboard for earnings, work hours, and analytics
+* 📝 Manual job logging & OCR-based screenshot upload
+* 🤖 AI-powered Fairness Checker for underpayment detection
+* 💬 AI Copilot for financial guidance and worker rights
+* 📈 AI-generated weekly insights and earning trends
+* 🔄 Multi-platform earnings aggregation
+* 📜 Job history with AI fairness analysis
+* 👤 User profile with performance metrics
+* ✨ Responsive, modern UI with interactive charts and animations
+
 Core Requirements: 
 Bonus Features Attempted: 
