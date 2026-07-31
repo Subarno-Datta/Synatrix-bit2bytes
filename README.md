@@ -35,6 +35,25 @@ The AI component matters because it turns raw numbers into something a worker ca
 on — a plain-language explanation, a language they understand, a moment of care — rather than
 just another dashboard to interpret alone.
 
+## Tech Stack
+- **Frontend:**
+  React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui (Radix UI), TanStack Start &
+  TanStack Router, TanStack React Query, Framer Motion (Motion), Recharts,
+  React Hook Form + Zod, Lucide React Icons
+- **Backend:**
+  FastAPI, Uvicorn (standard), python-multipart, aiosqlite, Groq, python-dotenv, Pillow
+- **AI/ML:**
+  Groq API — `llama-3.1-8b-instant` model
+  Language: Python
+  Key libraries: `groq` (official SDK), `python-dotenv` (API key management)
+  AI use cases: Chatbot Q&A (fairness explanations, rights, complaints), weekly
+  natural-language insight summaries, fatigue nudges, multilingual response generation
+  (native, not post-translation)
+- **Database/Storage:**
+  SQLite (via aiosqlite)
+- **Other tools/APIs:**
+  Pillow (image processing for OCR), python-multipart (file upload handling)
+
 ## AI Usage
 - Model/API used: Groq API — `llama-3.1-8b-instant`
 - Prompting or fine-tuning approach: No fine-tuning — zero-shot prompting with structured job
@@ -50,7 +69,7 @@ just another dashboard to interpret alone.
   out, so a Groq hiccup during the demo doesn't break the app.
 
 ## Demo
-- Live demo/video: <add link>
+- Live demo/video: <https://drive.google.com/file/d/1jrtC0szOy3UljxAlx429ucD6q15YHwcg/view>
 - Repository: https://github.com/Subarno-Datta/Synatrix-bit2bytes
 
 ## Setup
@@ -90,8 +109,6 @@ python groq_llm.py
   - AI-generated complaint drafts for underpaid jobs
   - Fatigue/burnout detector with AI-generated wellness nudges
   - Responsive, modern UI with interactive charts and animations
-- Known limitations: <fill in — e.g. SQLite storage only, no persistence across deployments;
-  OCR accuracy depends on screenshot quality; free-tier Groq rate limits under heavy use>
+- Known limitations: <fill in>
 - What you would build next: Community fairness benchmark using crowdsourced fare data across
   workers, an "I feel unsafe" safety trigger with location sharing, route safety scoring
-</parameter>
